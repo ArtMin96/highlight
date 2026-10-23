@@ -45,18 +45,19 @@ Override `getPatterns()` and preserve the base patterns with `...parent::getPatt
 
 Override `getInjections()` only when adding or deliberately adjusting injections. Preserve `...parent::getInjections()` so the built-in highlighting annotations continue to work. Do not add an override that only returns the parent list.
 
-Use `#[Override]` on overridden methods. Match the repository's PHP style, including strict types, typed signatures, sorted imports, short arrays, and trailing commas in multiline lists. Use `final readonly` for stateless pattern classes where appropriate, as in Swift and JSX.
+Use `#[Override]` on overridden methods. Match the repository's PHP style, including strict types, typed signatures, sorted imports, short arrays, and trailing commas in multiline lists. Make pattern classes `final readonly`, as in Swift and JSX. A built-in pattern that uses `IsPattern::match()` has its regex and token type compiled once per language only when all of its properties are readonly. A pattern with writable properties is asked for them again on every parse, which is slower.
 
 Before coding, identify the syntax the implementation will support. Cover the language's relevant keywords, declarations, comments, strings, numeric and other literals, operators, and identifiers. Include attributes, annotations, decorators, interpolation, or embedded languages where they apply. State any unsupported forms in the change description instead of claiming complete support.
 
 ## Pattern contract
 
-- Implement `Pattern`. Use `IsPattern` for ordinary regex matching, with `getPattern(): string` and `getTokenType(): TokenTypeEnum`.
+- Implement `Pattern`. Use `IsPattern` for ordinary regex matching, with `getPattern(): string` and a `getTokenType()` that returns a `TokenTypeEnum` case.
 - Capture exactly the text to highlight in a named `(?<match>...)` group. Context needed to recognize the token belongs outside that group. An unnamed capture alone will not produce a token.
 - `IsPattern` returns `preg_match_all` results with `PREG_OFFSET_CAPTURE`. A custom `match()` must preserve that result shape, including an empty `match` array for no matches and byte offsets into the original input.
 - Use existing `TokenTypeEnum` cases. Read `TokenTypeEnum::canContain()` and `src/Tokens/GroupTokens.php` before relying on overlapping or nested tokens. Pattern order alone does not define which token wins.
 - Reuse another language's pattern only when its syntax and token meaning fit. Test the reused behavior in the new language's integration tests.
 - Keep regexes bounded to the intended syntax. Check identifier boundaries, escaping, multiline behavior, and incomplete input. Avoid unbounded backtracking on long or unterminated strings, comments, tags, and attributes.
+- When every possible match contains a literal such as a keyword or delimiter, declare it with `#[RequiresSubstring('literal')]` on the pattern or injection class. The highlighter then skips the class for content that contains none of the listed strings. Matching is case-sensitive and the attribute is not inherited. A literal that a valid match can lack silently drops highlighting, so check that every form the pattern matches contains one of them.
 - Use a small shared scanner when syntax needs state, as Ruby does. Preserve source length and offsets when masking text. Do not change the core parser just to accommodate one language without a demonstrated need and regression tests.
 
 ## Required tests on pattern classes
